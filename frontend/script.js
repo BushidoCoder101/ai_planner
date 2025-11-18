@@ -247,7 +247,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appState.socket.on('log', (data) => {
             console.log('Log received:', data.message);
-            ui.logMessage(data.message);
+            // Check if the log message includes a plan to be formatted
+            if (data.plan && Array.isArray(data.plan)) {
+                const planHtml = data.plan.map(step => `<li>${step}</li>`).join('');
+                const formattedMessage = `
+                    ${data.message}
+                    <ul class="log-plan-list">${planHtml}</ul>
+                `;
+                ui.logMessage(formattedMessage);
+            } else {
+                ui.logMessage(data.message);
+            }
         });
 
         appState.socket.on('status_update', (data) => {

@@ -271,8 +271,10 @@ class AgentService:
         # Normalize elements to strings for display
         steps = [str(s) for s in steps]
         state.mission.plan = steps
-        plan_html = "".join([f"<li>{step}</li>" for step in steps])
-        self._emit_log(f"📋 Plan created:<ul>{plan_html}</ul>")
+        # Emit the plan as structured data so the frontend can format it.
+        self.socketio.emit('log', {
+            'message': f"📋 Plan created ({len(steps)} steps):", 'plan': steps
+        })
         return state
 
     def _execute_step(self, state: GraphState) -> GraphState:
@@ -308,7 +310,13 @@ class AgentService:
         if isinstance(raw, dict):
             # If the model returned structured output, try common keys
             report = raw.get('report') or raw.get('text') or json.dumps(raw)
+        
+        # The LLM returns a message object. We need to extract its string content.
+        # The object might have a `.content` attribute (standard for LangChain messages).
+        if hasattr(raw, 'content'):
+            report = raw.content
         else:
+            # Fallback for other types
             report = str(raw)
 
         state.mission.report = report
