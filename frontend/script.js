@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const appState = {
         isSidebarOpen: false,
         isExecuting: false,
-        currentNode: null, // Track the current execution node
+        completedNodes: new Set(), // Track all completed nodes for visualization
         socket: null, // To hold the socket instance
         status: 'IDLE', // IDLE, CONNECTING, RUNNING, COMPLETED, FAILED
     };
@@ -89,25 +89,30 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.logContainer.scrollTop = dom.logContainer.scrollHeight;
         },
         updateGraph(nodeName) {
-            const activeMap = {
-                clarify_goal: ['clarify_goal'],
-                is_clear: ['clarify_goal', '1'],
-                is_vague: ['clarify_goal', 'handle_vague_goal'],
-                error_handler: ['clarify_goal', 'handle_vague_goal'],
-                create_plan: ['clarify_goal', '1', 'create_plan'],
-                execute_step: ['clarify_goal', '1', 'create_plan', '2', 'execute_step'],
-                synthesize_report: ['clarify_goal', '1', 'create_plan', '2', 'execute_step', '3', 'synthesize_report'],
+            // Map nodes to their preceding connectors
+            const connectorMap = {
+                create_plan: '1',
+                execute_step: '2',
+                synthesize_report: '3',
             };
 
+            // Add the current node to the set of completed nodes
+            appState.completedNodes.add(nodeName);
+
+            // Reset all visual states
             graph.nodes.forEach(n => n.classList.remove('active', 'loading'));
             graph.connectors.forEach(c => c.classList.remove('active'));
 
-            const activeElements = activeMap[nodeName] || [];
-            activeElements.forEach(key => {
-                const el = document.querySelector(`[data-node="${key}"], [data-connector="${key}"]`);
-                if (el) el.classList.add('active');
+            // Activate all completed nodes and their preceding connectors
+            appState.completedNodes.forEach(completedNode => {
+                document.querySelector(`[data-node="${completedNode}"]`)?.classList.add('active');
+                const connectorId = connectorMap[completedNode];
+                if (connectorId) {
+                    document.querySelector(`[data-connector="${connectorId}"]`)?.classList.add('active');
+                }
             });
 
+            // Set the current node to a 'loading' state
             const activeNode = document.querySelector(`[data-node="${nodeName}"]`);
             if (activeNode) activeNode.classList.add('loading');
         },
@@ -116,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.logPlaceholder = document.getElementById('log-placeholder'); // Re-cache
             dom.finalReport.innerHTML = templates.emptyReport;
             this.setExecuting(false);
-            appState.currentNode = null;
+            appState.completedNodes.clear();
             this.updateStatus('IDLE', 'secondary', false);
             dom.connectionError.classList.add('d-none');
             graph.nodes.forEach(n => n.classList.remove('active', 'loading'));
@@ -262,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         appState.socket.on('status_update', (data) => {
             console.log('Status update:', data);
-            appState.currentNode = data.node;
             ui.updateGraph(data.node);
             ui.updateStatus(data.status, 'info', true);
 
