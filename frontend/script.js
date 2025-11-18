@@ -291,8 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!useBtn) return;
 
+        // Get the goal from the button's data attribute and set the input value
+        const goal = useBtn.dataset.goal;
+        dom.goalInput.value = goal;
+
         // "Copied!" feedback
-        const buttonWrapper = target.closest('li').querySelector('.use-button-wrapper');
+        const buttonWrapper = useBtn.closest('li').querySelector('.use-button-wrapper');
         if (buttonWrapper) {
             const feedbackEl = document.createElement('div');
             feedbackEl.className = 'copy-feedback';
