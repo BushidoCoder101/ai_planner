@@ -72,7 +72,7 @@ if %errorlevel% neq 0 (
 :: 2. Upgrade Pip and install dependencies
 echo 2. Upgrading Pip and installing dependencies...
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt --no-cache-dir
 
 :: 3. Delete old database and initialize
 echo 3. Deleting old database (if it exists)...

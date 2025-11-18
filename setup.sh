@@ -74,7 +74,7 @@ fi
 # 2. Upgrade Pip & Install dependencies
 echo "2. Upgrading Pip and installing dependencies..."
 ./.venv/bin/python -m pip install --upgrade pip
-./.venv/bin/python -m pip install -r backend/requirements.txt
+./.venv/bin/python -m pip install -r backend/requirements.txt --no-cache-dir
 
 # 3. Delete old database
 echo "3. Deleting old database (if it exists)..."

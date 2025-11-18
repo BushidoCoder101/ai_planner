@@ -1,9 +1,7 @@
-flask
-flask-cors
-langgraph
-langchain-core
-pydantic
-langchain
-langchain-community
-flask-socketio
-controllers
+Flask
+python-dotenv
+Flask-Cors
+Flask-SocketIO
+flasgger
+gunicorn
+eventlet

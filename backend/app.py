@@ -5,6 +5,7 @@ import threading
 from flask import Flask
 from flask_socketio import SocketIO
 from flask_cors import CORS
+from flasgger import Swagger
 
 socketio = SocketIO(cors_allowed_origins="*")
 
@@ -16,6 +17,13 @@ def create_app(test_config=None):
         DATABASE=os.path.join(app.instance_path, 'planner.sqlite'),
     )
     CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+    # Configure Flasgger for API documentation
+    app.config['SWAGGER'] = {
+        'title': 'AI Planner API',
+        'uiversion': 3
+    }
+    Swagger(app)
 
     if test_config is None:
         app.config.from_pyfile('config.py', silent=True)
