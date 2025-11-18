@@ -36,3 +36,10 @@ def create_app(test_config=None):
 
     socketio.init_app(app)
     return app
+
+if __name__ == '__main__':
+    print("="*80)
+    print("ERROR: This file is not meant to be run directly.")
+    print("Please use the 'run.py' script in the project root to start the application.")
+    print("Example: python run.py")
+    print("="*80)
