@@ -26,9 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
         logPlaceholder: document.getElementById('log-placeholder'),
         finalReport: document.getElementById('final-report'),
         previousIdeasList: document.getElementById('previous-ideas-list'),
+        activeMissionsList: document.getElementById('active-missions-list'),
+        refreshMissionsBtn: document.getElementById('refresh-missions-btn'),
+        addIdeaForm: document.getElementById('add-idea-form'),
+        newIdeaInput: document.getElementById('new-idea-input'),
         connectionError: document.getElementById('connection-error'),
         logTab: new bootstrap.Tab(document.getElementById('log-tab')),
         reportTab: new bootstrap.Tab(document.getElementById('report-tab')),
+        editIdeaModal: new bootstrap.Modal(document.getElementById('edit-idea-modal')),
+        editIdeaId: document.getElementById('edit-idea-id'),
+        editIdeaInput: document.getElementById('edit-idea-input'),
+        saveIdeaBtn: document.getElementById('save-idea-btn'),
     };
 
     const graph = {
@@ -132,6 +140,95 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- 4. Data & Event Handling ---
+    async function fetchAndRenderMissions() {
+        try {
+            const response = await fetch(API_URL);
+            if (!response.ok) throw new Error('Failed to fetch missions.');
+            const missions = await response.json();
+
+            dom.activeMissionsList.innerHTML = ''; // Clear loading message
+            if (missions.length === 0) {
+                dom.activeMissionsList.innerHTML = '<li class="list-group-item bg-transparent text-muted small">No active missions.</li>';
+                return;
+            }
+
+            missions.forEach(mission => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent border-secondary';
+                li.innerHTML = `
+                    <div class="text-truncate me-2">
+                        <span class="d-block text-truncate" title="${mission.goal}">${mission.goal}</span>
+                        <small class="text-muted">${mission.status}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger flex-shrink-0 delete-mission-btn" data-mission-id="${mission.id}" title="Delete Mission">
+                        <i class="bi bi-trash"></i>
+                    </button>`;
+                dom.activeMissionsList.appendChild(li);
+            });
+        } catch (error) {
+            console.error('Error fetching missions:', error);
+            dom.activeMissionsList.innerHTML = '<li class="list-group-item bg-transparent text-danger small">Could not load missions.</li>';
+        }
+    }
+
+    async function handleDeleteMission(e) {
+        const deleteBtn = e.target.closest('.delete-mission-btn');
+        if (!deleteBtn) return;
+
+        const missionId = deleteBtn.dataset.missionId;
+        if (!confirm(`Are you sure you want to delete mission ${missionId}?`)) return;
+
+        try {
+            const response = await fetch(`${API_URL}/${missionId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to delete mission.');
+            // Refresh the list to show the mission has been removed
+            await fetchAndRenderMissions();
+        } catch (error) {
+            console.error('Error deleting mission:', error);
+            alert('Could not delete the mission. Please check the console for details.');
+        }
+    }
+
+    async function handleAddIdea(e) {
+        e.preventDefault();
+        const goal = dom.newIdeaInput.value.trim();
+        if (!goal) return;
+
+        try {
+            const response = await fetch(IDEAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goal })
+            });
+            if (!response.ok) throw new Error('Failed to add idea.');
+            dom.newIdeaInput.value = ''; // Clear input
+            await fetchAndRenderIdeas(); // Refresh list
+        } catch (error) {
+            console.error('Error adding idea:', error);
+            alert('Could not add the new idea.');
+        }
+    }
+
+    async function handleSaveIdea() {
+        const id = dom.editIdeaId.value;
+        const goal = dom.editIdeaInput.value.trim();
+        if (!id || !goal) return;
+
+        try {
+            const response = await fetch(`${IDEAS_URL}/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goal })
+            });
+            if (!response.ok) throw new Error('Failed to update idea.');
+            dom.editIdeaModal.hide();
+            await fetchAndRenderIdeas();
+        } catch (error) {
+            console.error('Error updating idea:', error);
+            alert('Could not update the idea.');
+        }
+    }
+
     async function fetchAndRenderIdeas() {
         try {
             const response = await fetch(IDEAS_URL);
@@ -147,10 +244,18 @@ document.addEventListener('DOMContentLoaded', () => {
             ideas.forEach(idea => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item d-flex justify-content-between align-items-center bg-transparent border-secondary';
-                li.innerHTML = `<span class="text-truncate me-2" data-goal="${idea.goal}" title="${idea.goal}">${idea.goal}</span>
-                                <div class="use-button-wrapper">
-                                    <button class="btn btn-sm btn-outline-primary flex-shrink-0" data-goal="${idea.goal}">Use</button>
-                                </div>`;
+                li.innerHTML = `
+                    <span class="text-truncate me-2 use-idea-btn" data-goal="${idea.goal}" title="${idea.goal}">${idea.goal}</span>
+                    <div class="use-button-wrapper btn-group">
+                        <button class="btn btn-sm btn-outline-secondary edit-idea-btn" data-id="${idea.id}" data-goal="${idea.goal}" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-idea-btn" data-id="${idea.id}" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary use-idea-btn" data-goal="${idea.goal}" title="Use">Use</button>
+                    </div>
+                `;
                 dom.previousIdeasList.appendChild(li);
             });
         } catch (error) {
@@ -160,11 +265,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleIdeaClick(e) {
-        const target = e.target.closest('[data-goal]');
-        if (!target) return;
+        const useBtn = e.target.closest('.use-idea-btn');
+        const editBtn = e.target.closest('.edit-idea-btn');
+        const deleteBtn = e.target.closest('.delete-idea-btn');
 
-        const goal = target.dataset.goal;
-        dom.goalInput.value = goal;
+        if (editBtn) {
+            dom.editIdeaId.value = editBtn.dataset.id;
+            dom.editIdeaInput.value = editBtn.dataset.goal;
+            dom.editIdeaModal.show();
+            return;
+        }
+
+        if (deleteBtn) {
+            const ideaId = deleteBtn.dataset.id;
+            if (confirm('Are you sure you want to delete this idea?')) {
+                fetch(`${IDEAS_URL}/${ideaId}`, { method: 'DELETE' })
+                    .then(res => res.ok ? fetchAndRenderIdeas() : Promise.reject('Failed to delete'))
+                    .catch(err => {
+                        console.error('Error deleting idea:', err);
+                        alert('Could not delete the idea.');
+                    });
+            }
+            return;
+        }
+
+        if (!useBtn) return;
 
         // "Copied!" feedback
         const buttonWrapper = target.closest('li').querySelector('.use-button-wrapper');
@@ -216,6 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const missionData = await response.json();
             console.log('Mission started:', missionData);
+            // Refresh the active missions list to include the new one
+            await fetchAndRenderMissions();
             // The backend will now send updates via WebSocket
 
         } catch (error) {
@@ -274,6 +401,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.setExecuting(false);
                 graph.nodes.forEach(n => n.classList.remove('loading'));
                 ui.updateStatus(data.status, data.status === 'COMPLETED' ? 'success' : 'danger', true);
+                // Refresh the list to show the final status
+                fetchAndRenderMissions();
             }
         });
 
@@ -304,11 +433,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Main action
         dom.previousIdeasList.addEventListener('click', handleIdeaClick);
+        dom.activeMissionsList.addEventListener('click', handleDeleteMission);
+        dom.refreshMissionsBtn.addEventListener('click', fetchAndRenderMissions);
+        dom.addIdeaForm.addEventListener('submit', handleAddIdea);
+        dom.saveIdeaBtn.addEventListener('click', handleSaveIdea);
         dom.startButton.addEventListener('click', handleExecute);
 
         // Initial render
         fetchAndRenderIdeas();
         setupSocketListeners();
+        fetchAndRenderMissions();
         ui.reset();
     }
 

@@ -1,5 +1,6 @@
 import sqlite3
 import click
+import json
 from flask import current_app, g
 
 def get_db():
@@ -21,8 +22,10 @@ def close_db(e=None):
 def init_db():
     """Clear existing data and create new tables."""
     db = get_db()
-    with current_app.open_resource('schema.sql') as f:
-        db.executescript(f.read().decode('utf8'))
+    # schema.sql is in the same directory as this db.py file
+    schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+    with open(schema_path, 'r') as f:
+        db.executescript(f.read())
 
 @click.command('init-db')
 def init_db_command():
@@ -35,9 +38,53 @@ def init_app(app):
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
 
-def save_idea(goal):
-    get_db().execute("INSERT OR IGNORE INTO ideas (goal) VALUES (?)", (goal,))
-    get_db().commit()
+# --- Ideas CRUD ---
+
+def create_idea(goal):
+    db = get_db()
+    cursor = db.execute("INSERT INTO ideas (goal) VALUES (?)", (goal,))
+    db.commit()
+    return get_idea(cursor.lastrowid)
+
+def get_idea(id):
+    return get_db().execute("SELECT * FROM ideas WHERE id = ?", (id,)).fetchone()
 
 def get_ideas():
     return get_db().execute("SELECT id, goal FROM ideas ORDER BY id DESC").fetchall()
+
+def update_idea(id, goal):
+    db = get_db()
+    db.execute("UPDATE ideas SET goal = ? WHERE id = ?", (goal, id))
+    db.commit()
+    return get_idea(id)
+
+def delete_idea(id):
+    get_db().execute("DELETE FROM ideas WHERE id = ?", (id,))
+    get_db().commit()
+
+# --- Missions CRUD ---
+
+def create_mission(mission):
+    db = get_db()
+    db.execute(
+        "INSERT INTO missions (id, goal, status) VALUES (?, ?, ?)",
+        (mission.id, mission.goal, mission.status.value)
+    )
+    db.commit()
+
+def get_all_missions():
+    return get_db().execute("SELECT * FROM missions ORDER BY id DESC").fetchall()
+
+def update_mission_state(mission):
+    """Updates a mission's status, plan, report, etc."""
+    db = get_db()
+    db.execute(
+        """UPDATE missions SET status = ?, plan = ?, report = ?, clarified_goal = ?
+           WHERE id = ?""",
+        (mission.status.value, json.dumps(mission.plan), mission.report, mission.clarified_goal, mission.id)
+    )
+    db.commit()
+
+def delete_mission(id):
+    get_db().execute("DELETE FROM missions WHERE id = ?", (id,))
+    get_db().commit()

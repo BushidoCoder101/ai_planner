@@ -12,10 +12,24 @@ echo "--- AI Planner Setup (Linux/macOS) ---"
 # Check if python3 is available
 if ! command -v python3 &> /dev/null
 then
-    echo "❌ ERROR: python3 could not be found."
-    echo "Please install Python 3.8+ from https://www.python.org/downloads/ or using your system's package manager."
-    echo "Example for Debian/Ubuntu: sudo apt update && sudo apt install python3"
-    exit 1
+    echo "Python3 not found. Attempting to install..."
+    if command -v apt-get &> /dev/null; then
+        echo "Found 'apt-get'. Running 'sudo apt-get update && sudo apt-get install -y python3'."
+        sudo apt-get update && sudo apt-get install -y python3
+    elif command -v brew &> /dev/null; then
+        echo "Found 'brew'. Running 'brew install python'."
+        brew install python
+    else
+        echo "❌ ERROR: Could not find a supported package manager (apt-get or brew) to install Python."
+        echo "Please install Python 3.8+ manually and re-run this script."
+        exit 1
+    fi
+
+    if ! command -v python3 &> /dev/null; then
+        echo "❌ ERROR: Python installation failed. Please install Python 3.8+ manually."
+        exit 1
+    fi
+    echo "✓ Python installed successfully."
 fi
 
 # Check for Ollama
@@ -62,5 +76,15 @@ echo "2. Upgrading Pip and installing dependencies..."
 ./.venv/bin/python -m pip install --upgrade pip
 ./.venv/bin/python -m pip install -r backend/requirements.txt
 
+# 3. Delete old database
+echo "3. Deleting old database (if it exists)..."
+rm -f ./instance/planner.sqlite
+
+# 3. Initialize the database
+echo "3. Initializing the database..."
+export FLASK_APP="backend:create_app"
+./.venv/bin/flask init-db
+unset FLASK_APP
+
 echo "✅ Setup complete!"
-echo "Next steps: Activate the environment by running: source .venv/bin/activate"
+echo "You can now start the application by running: ./start.sh"

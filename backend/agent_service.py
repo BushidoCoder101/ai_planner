@@ -1,6 +1,7 @@
 # c:/Users/dbmar/Downloads/ai_planner/backend/services/agent_service.py
 import time
 import json
+from flask import current_app
 import ast
 import traceback
 from typing import List, Dict, Any, Optional
@@ -11,6 +12,7 @@ try:
     from .mission import Mission, MissionStatus
 except Exception:
     from mission import Mission, MissionStatus
+from . import db
 
 # LangChain and LangGraph imports
 from langgraph.graph import StateGraph, END
@@ -157,6 +159,10 @@ class AgentService:
             if self.mission.status != MissionStatus.FAILED:
                 self._set_status(MissionStatus.COMPLETED, 'synthesize_report')
             
+            # Final state update to the DB
+            with current_app.app_context():
+                db.update_mission_state(self.mission)
+            
             self._emit_log("✅ Mission finished.")
 
         except Exception as e:
@@ -164,6 +170,9 @@ class AgentService:
             tb = traceback.format_exc()
             error_message = f"An unexpected error occurred during the mission: {e}\n{tb}"
             self._emit_log(f"🔴 {error_message}")
+            # Update DB with failed status
+            with current_app.app_context():
+                db.update_mission_state(self.mission)
             self._set_status(MissionStatus.FAILED, 'handle_vague_goal')
             print(f"ERROR: {error_message}")
 
@@ -210,6 +219,9 @@ class AgentService:
         else:
             state.mission.clarified_goal = cg
         self._emit_log(f"🎯 Goal clarified: \"{state.mission.clarified_goal}\"")
+        # Persist the clarified goal
+        with current_app.app_context():
+            db.update_mission_state(state.mission)
         return state
 
     def _create_plan(self, state: GraphState) -> GraphState:
@@ -275,6 +287,9 @@ class AgentService:
         self.socketio.emit('log', {
             'message': f"📋 Plan created ({len(steps)} steps):", 'plan': steps
         })
+        # Persist the plan
+        with current_app.app_context():
+            db.update_mission_state(state.mission)
         return state
 
     def _execute_step(self, state: GraphState) -> GraphState:
@@ -321,6 +336,9 @@ class AgentService:
 
         state.mission.report = report
         self._emit_log("📄 Report generated.")
+        # Persist the final report
+        with current_app.app_context():
+            db.update_mission_state(state.mission)
         return state
 
     # --- Graph Edges ---

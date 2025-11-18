@@ -17,4 +17,4 @@ if [ ! -f "$VENV_PYTHON" ]; then
     exit 1
 fi
 
-"$VENV_PYTHON" -m backend.app
+"$VENV_PYTHON" run.py
