@@ -119,9 +119,10 @@ class AgentService:
     Manages the lifecycle and execution of an AI mission.
     This class encapsulates the core business logic (the AI agent).
     """
-    def __init__(self, goal: str, socketio):
+    def __init__(self, goal: str, socketio, app):
         self.mission = Mission(goal=goal)
         self.socketio = socketio
+        self.app = app  # Store the app instance
         self.graph = self._build_graph()
 
     def _emit_log(self, message: str):
@@ -160,7 +161,7 @@ class AgentService:
                 self._set_status(MissionStatus.COMPLETED, 'synthesize_report')
             
             # Final state update to the DB
-            with current_app.app_context():
+            with self.app.app_context():
                 db.update_mission_state(self.mission)
             
             self._emit_log("✅ Mission finished.")
@@ -171,7 +172,7 @@ class AgentService:
             error_message = f"An unexpected error occurred during the mission: {e}\n{tb}"
             self._emit_log(f"🔴 {error_message}")
             # Update DB with failed status
-            with current_app.app_context():
+            with self.app.app_context():
                 db.update_mission_state(self.mission)
             self._set_status(MissionStatus.FAILED, 'handle_vague_goal')
             print(f"ERROR: {error_message}")
@@ -220,7 +221,7 @@ class AgentService:
             state.mission.clarified_goal = cg
         self._emit_log(f"🎯 Goal clarified: \"{state.mission.clarified_goal}\"")
         # Persist the clarified goal
-        with current_app.app_context():
+        with self.app.app_context():
             db.update_mission_state(state.mission)
         return state
 
@@ -288,7 +289,7 @@ class AgentService:
             'message': f"📋 Plan created ({len(steps)} steps):", 'plan': steps
         })
         # Persist the plan
-        with current_app.app_context():
+        with self.app.app_context():
             db.update_mission_state(state.mission)
         return state
 
@@ -337,7 +338,7 @@ class AgentService:
         state.mission.report = report
         self._emit_log("📄 Report generated.")
         # Persist the final report
-        with current_app.app_context():
+        with self.app.app_context():
             db.update_mission_state(state.mission)
         return state
 

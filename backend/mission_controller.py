@@ -26,7 +26,7 @@ def register_mission_routes(app, socketio):
         from .agent_service import AgentService
         from . import db
 
-        agent_service = AgentService(goal, socketio)
+        agent_service = AgentService(goal, socketio, app)
         
         # Save the initial mission state to the database
         with app.app_context():
@@ -37,13 +37,3 @@ def register_mission_routes(app, socketio):
 
         # 3. Return an immediate response to the client
         return jsonify(agent_service.mission.to_dict()), 202  # 202 Accepted
-
-    @socketio.on('connect')
-    def handle_connect():
-        """Handles a new client connecting via WebSocket."""
-        print('Client connected')
-
-    @socketio.on('disconnect')
-    def handle_disconnect():
-        """Handles a client disconnecting."""
-        print('Client disconnected')

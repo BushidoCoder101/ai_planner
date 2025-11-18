@@ -3,7 +3,7 @@ import os
 import webbrowser
 import threading
 from flask import Flask
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, send
 from flask_cors import CORS
 from flasgger import Swagger
 
@@ -11,7 +11,11 @@ socketio = SocketIO(cors_allowed_origins="*")
 
 def create_app(test_config=None):
     """Create and configure an instance of the Flask application."""
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(__name__, 
+                instance_relative_config=True,
+                static_folder='../frontend',  # Serve files from the 'frontend' directory
+                static_url_path='/'           # at the root URL
+               )
     app.config.from_mapping(
         SECRET_KEY='dev',
         DATABASE=os.path.join(app.instance_path, 'planner.sqlite'),
@@ -41,6 +45,25 @@ def create_app(test_config=None):
 
     from . import api
     app.register_blueprint(api.bp)
+
+    # Register mission controller routes and socket events
+    from . import mission_controller
+    mission_controller.register_mission_routes(app, socketio)
+
+    # Add a default route to serve the main frontend page
+    @app.route('/')
+    def index():
+        return app.send_static_file('ai_planner.html')
+
+    @socketio.on('connect')
+    def handle_connect():
+        """Handles a new client connecting via WebSocket."""
+        print('Client connected')
+
+    @socketio.on('disconnect')
+    def handle_disconnect():
+        """Handles a client disconnecting."""
+        print('Client disconnected')
 
     socketio.init_app(app)
     return app

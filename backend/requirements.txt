@@ -5,3 +5,7 @@ Flask-SocketIO
 flasgger
 gunicorn
 eventlet
+langchain
+langchain-core
+langchain-ollama
+langgraph
